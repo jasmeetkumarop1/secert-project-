@@ -4,18 +4,19 @@ from __future__ import annotations
 
 import argparse
 
-from datasets import load_dataset
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    DataCollatorForLanguageModeling,
-    Trainer,
-    TrainingArguments,
-)
 
 
 def train(dataset_path: str, output_dir: str, model_name: str, epochs: float, block_size: int) -> None:
     """Train and save a text-generation model."""
+    from datasets import load_dataset
+    from transformers import (
+        AutoModelForCausalLM,
+        AutoTokenizer,
+        DataCollatorForLanguageModeling,
+        Trainer,
+        TrainingArguments,
+    )
+
     dataset = load_dataset("json", data_files=dataset_path, split="train")
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     if tokenizer.pad_token is None:

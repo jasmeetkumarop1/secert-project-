@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import argparse
 
-from transformers import pipeline
-
 from x_agent.memory import AgentMemory
 
 
@@ -25,6 +23,8 @@ def main() -> None:
     parser.add_argument("--memory", default="data/agent_memory.sqlite", help="SQLite memory path")
     parser.add_argument("--max-new-tokens", type=int, default=80, help="Generated token limit")
     args = parser.parse_args()
+
+    from transformers import pipeline
 
     memory = AgentMemory(args.memory)
     generator = pipeline("text-generation", model=args.model_dir, tokenizer=args.model_dir)

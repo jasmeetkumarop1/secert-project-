@@ -12,8 +12,6 @@ import os
 from pathlib import Path
 from typing import Any
 
-import requests
-from dotenv import load_dotenv
 
 SEARCH_URL = "https://api.twitter.com/2/tweets/search/recent"
 
@@ -22,6 +20,8 @@ def fetch_recent_posts(query: str, bearer_token: str, max_results: int = 100) ->
     """Fetch recent X posts matching a query using the official API."""
     if not 10 <= max_results <= 100:
         raise ValueError("max_results must be between 10 and 100 for one recent-search request")
+
+    import requests
 
     response = requests.get(
         SEARCH_URL,
@@ -51,6 +51,8 @@ def main() -> None:
     parser.add_argument("--output", default="data/raw_tweets.jsonl", help="Output JSONL path")
     parser.add_argument("--max-results", type=int, default=100, help="Number of posts to fetch, 10-100")
     args = parser.parse_args()
+
+    from dotenv import load_dotenv
 
     load_dotenv()
     bearer_token = os.getenv("X_BEARER_TOKEN")

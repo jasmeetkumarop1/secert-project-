@@ -9,7 +9,6 @@ from datetime import datetime
 from email.utils import parsedate_to_datetime
 from typing import Any
 
-from dotenv import load_dotenv
 
 from x_agent.collect import fetch_recent_posts
 from x_agent.memory import AgentMemory
@@ -67,6 +66,8 @@ def main() -> None:
     parser.add_argument("--memory", default="data/agent_memory.sqlite", help="SQLite memory path")
     parser.add_argument("--interval", type=float, default=1.0, help="Polling interval in seconds")
     args = parser.parse_args()
+
+    from dotenv import load_dotenv
 
     load_dotenv()
     bearer_token = os.getenv("X_BEARER_TOKEN")
