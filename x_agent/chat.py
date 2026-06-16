@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 
 from x_agent.memory import AgentMemory
+from x_agent.parameters import AdaptiveParameterScheduler
 
 
 def build_prompt(user_prompt: str, memories: list[str]) -> str:
@@ -22,10 +23,13 @@ def main() -> None:
     parser.add_argument("--model-dir", default="models/x-agent", help="Directory with trained model")
     parser.add_argument("--memory", default="data/agent_memory.sqlite", help="SQLite memory path")
     parser.add_argument("--max-new-tokens", type=int, default=80, help="Generated token limit")
+    parser.add_argument("--auto-parameters", action="store_true", help="Automatically grow chat parameters over time")
+    parser.add_argument("--parameter-state", default="data/parameter_state.json", help="Adaptive parameter state path")
     args = parser.parse_args()
 
     from transformers import pipeline
 
+    scheduler = AdaptiveParameterScheduler(args.parameter_state)
     memory = AgentMemory(args.memory)
     generator = pipeline("text-generation", model=args.model_dir, tokenizer=args.model_dir)
     print("X agent ready. Type 'exit' to quit. First message is pinned as long-term memory.")
@@ -36,18 +40,30 @@ def main() -> None:
                 break
             memory.remember_first(prompt)
             memory.remember(prompt, source="conversation")
-            remembered = [item.text for item in memory.search(prompt, limit=6)]
+            adaptive = scheduler.chat_parameters(base_max_new_tokens=args.max_new_tokens)
+            if args.auto_parameters:
+                max_new_tokens = adaptive.max_new_tokens
+                memory_limit = adaptive.memory_limit
+                temperature = adaptive.temperature
+                top_p = adaptive.top_p
+            else:
+                max_new_tokens = args.max_new_tokens
+                memory_limit = 6
+                temperature = 0.8
+                top_p = 0.95
+            remembered = [item.text for item in memory.search(prompt, limit=memory_limit)]
             formatted_prompt = build_prompt(prompt, remembered)
             result = generator(
                 formatted_prompt,
-                max_new_tokens=args.max_new_tokens,
+                max_new_tokens=max_new_tokens,
                 do_sample=True,
-                temperature=0.8,
-                top_p=0.95,
+                temperature=temperature,
+                top_p=top_p,
                 pad_token_id=generator.tokenizer.eos_token_id,
             )[0]["generated_text"]
             answer = result[len(formatted_prompt) :].strip()
             memory.remember(answer, source="agent_reply")
+            scheduler.record_chat_turn(adaptive)
             print(answer)
     finally:
         memory.close()

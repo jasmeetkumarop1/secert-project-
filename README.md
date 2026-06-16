@@ -12,6 +12,7 @@ A Python starter project for building an AI agent from your own X (Twitter) data
 - Run an interactive local agent that responds using the trained model.
 - Update retrieval memory from X on a one-second local polling loop, subject to X API rate limits.
 - Persist long-term memory in SQLite, including a pinned first user memory that the agent keeps recalling.
+- Grow safe training and chat parameters automatically over repeated runs with a persisted scheduler.
 
 ## Quick start
 
@@ -32,7 +33,7 @@ python -m x_agent.prepare --input data/raw_tweets.jsonl --output data/train.json
 Train a local model:
 
 ```bash
-python -m x_agent.train --dataset data/train.jsonl --output-dir models/x-agent --model-name distilgpt2 --epochs 1
+python -m x_agent.train --dataset data/train.jsonl --output-dir models/x-agent --model-name distilgpt2 --epochs 1 --auto-parameters
 ```
 
 Continuously update memory from X as fast as once per second:
@@ -44,7 +45,7 @@ python -m x_agent.realtime --query "from:your_username -is:retweet" --interval 1
 Chat with the trained, memory-enabled agent. The first thing you tell the agent is pinned as long-term memory:
 
 ```bash
-python -m x_agent.chat --model-dir models/x-agent --memory data/agent_memory.sqlite
+python -m x_agent.chat --model-dir models/x-agent --memory data/agent_memory.sqlite --auto-parameters
 ```
 
 ## Project layout
@@ -56,6 +57,7 @@ x_agent/train.py     # model fine-tuning
 x_agent/chat.py      # interactive generation with memory
 x_agent/memory.py    # SQLite long-term memory and search
 x_agent/realtime.py  # one-second X-to-memory updater
+x_agent/parameters.py # adaptive training/chat parameter scheduler
 ```
 
 ## Data format
@@ -66,3 +68,8 @@ Raw collection writes one JSON object per line with at least `id`, `text`, and `
 ## Real-time training vs. memory updates
 
 Training a neural model on all of Twitter in one second is not realistic or compliant with platform limits. This project instead supports a production-style pattern: fine-tune periodically on licensed datasets, then update SQLite retrieval memory every second with fresh X API data so the agent can react quickly without retraining the entire model.
+
+
+## Adaptive parameters
+
+Use `--auto-parameters` on training or chat commands to let the agent safely increase selected parameters over time. The scheduler stores run counts in `data/parameter_state.json` and gradually raises values such as training epochs, context block size, gradient accumulation, memory retrieval depth, and generation token budget while respecting hard caps. It does not create new neural-network weights by itself; it tunes how future training and inference runs use the model.

@@ -1,5 +1,9 @@
 import json
+import sys
 import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from x_agent.memory import AgentMemory
 from x_agent.prepare import prepare_dataset
@@ -10,8 +14,6 @@ class MemoryPipelineTests(unittest.TestCase):
     def test_prepare_filters_and_wraps_posts(self):
         with self.subTest("prepare jsonl"):
             import tempfile
-            from pathlib import Path
-
             with tempfile.TemporaryDirectory() as directory:
                 tmp_path = Path(directory)
                 raw_path = tmp_path / "raw.jsonl"
@@ -36,8 +38,6 @@ class MemoryPipelineTests(unittest.TestCase):
 
     def test_memory_pins_first_and_deduplicates_x_posts(self):
         import tempfile
-        from pathlib import Path
-
         with tempfile.TemporaryDirectory() as directory:
             memory = AgentMemory(Path(directory) / "memory.sqlite")
             try:
@@ -62,6 +62,30 @@ class MemoryPipelineTests(unittest.TestCase):
                 self.assertTrue(any(item.text == "Realtime X update about AI agents" for item in results))
             finally:
                 memory.close()
+
+
+class AdaptiveParameterSchedulerTests(unittest.TestCase):
+    def test_parameters_grow_and_persist_over_time(self):
+        import tempfile
+        from x_agent.parameters import AdaptiveParameterScheduler
+
+        with tempfile.TemporaryDirectory() as directory:
+            state_path = Path(directory) / "params.json"
+            scheduler = AdaptiveParameterScheduler(state_path)
+
+            first = scheduler.training_parameters(dataset_size=2_500, base_epochs=1.0, base_block_size=128)
+            scheduler.record_training_run(first)
+            second = scheduler.training_parameters(dataset_size=2_500, base_epochs=1.0, base_block_size=128)
+
+            self.assertGreater(second.epochs, first.epochs)
+            self.assertGreater(second.block_size, first.block_size)
+            self.assertTrue(state_path.exists())
+
+            chat = scheduler.chat_parameters(base_max_new_tokens=80)
+            scheduler.record_chat_turn(chat)
+            reloaded = AdaptiveParameterScheduler(state_path)
+            self.assertEqual(reloaded.state["training_runs"], 1)
+            self.assertEqual(reloaded.state["chat_turns"], 1)
 
 
 if __name__ == "__main__":
