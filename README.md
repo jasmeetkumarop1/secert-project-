@@ -13,6 +13,7 @@ A Python starter project for building an AI agent from your own X (Twitter) data
 - Update retrieval memory from X on a one-second local polling loop, subject to X API rate limits.
 - Persist long-term memory in SQLite, including a pinned first user memory that the agent keeps recalling.
 - Grow safe training and chat parameters automatically over repeated runs with a persisted scheduler.
+- Auto-review the agent's own code every second and apply conservative safe fixes with an opt-in loop.
 
 ## Quick start
 
@@ -58,6 +59,7 @@ x_agent/chat.py      # interactive generation with memory
 x_agent/memory.py    # SQLite long-term memory and search
 x_agent/realtime.py  # one-second X-to-memory updater
 x_agent/parameters.py # adaptive training/chat parameter scheduler
+x_agent/autoreview.py # one-second self-review and safe-fix loop
 ```
 
 ## Data format
@@ -73,3 +75,20 @@ Training a neural model on all of Twitter in one second is not realistic or comp
 ## Adaptive parameters
 
 Use `--auto-parameters` on training or chat commands to let the agent safely increase selected parameters over time. The scheduler stores run counts in `data/parameter_state.json` and gradually raises values such as training epochs, context block size, gradient accumulation, memory retrieval depth, and generation token budget while respecting hard caps. It does not create new neural-network weights by itself; it tunes how future training and inference runs use the model.
+
+
+## Automatic self-review
+
+Run one review cycle with:
+
+```bash
+python -m x_agent.autoreview --fix
+```
+
+Run continuous one-second review with:
+
+```bash
+python -m x_agent.autoreview --watch --interval 1 --fix
+```
+
+The auto-reviewer only touches this project's own Python files under `x_agent/` and `tests/`. It writes `data/autoreview_report.json`, runs compile and unit checks, and limits automatic edits to deterministic safe fixes such as trailing-whitespace cleanup.

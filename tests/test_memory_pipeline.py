@@ -88,5 +88,20 @@ class AdaptiveParameterSchedulerTests(unittest.TestCase):
             self.assertEqual(reloaded.state["chat_turns"], 1)
 
 
+class AutoReviewTests(unittest.TestCase):
+    def test_autoreview_safe_fix_and_report(self):
+        import tempfile
+
+        from x_agent.autoreview import run_review
+
+        with tempfile.TemporaryDirectory() as directory:
+            report_path = Path(directory) / "review.json"
+            report = run_review(apply_fixes=True, report_path=report_path, include_unit=False)
+
+            self.assertTrue(report_path.exists())
+            self.assertTrue(any(check.name == "compile" for check in report.checks))
+            self.assertTrue(report.passed)
+
+
 if __name__ == "__main__":
     unittest.main()
