@@ -7,13 +7,14 @@ and train on content you own or are licensed to use.
 from __future__ import annotations
 
 import argparse
-import json
 import os
 from pathlib import Path
 from typing import Any
 
 import requests
 from dotenv import load_dotenv
+
+from x_agent.utils import write_jsonl
 
 SEARCH_URL = "https://api.twitter.com/2/tweets/search/recent"
 
@@ -35,14 +36,6 @@ def fetch_recent_posts(query: str, bearer_token: str, max_results: int = 100) ->
     )
     response.raise_for_status()
     return response.json().get("data", [])
-
-
-def write_jsonl(posts: list[dict[str, Any]], output: Path) -> None:
-    """Write posts as newline-delimited JSON."""
-    output.parent.mkdir(parents=True, exist_ok=True)
-    with output.open("w", encoding="utf-8") as handle:
-        for post in posts:
-            handle.write(json.dumps(post, ensure_ascii=False) + "\n")
 
 
 def main() -> None:
