@@ -17,7 +17,7 @@ from transformers import (
 def train(dataset_path: str, output_dir: str, model_name: str, epochs: float, block_size: int) -> None:
     """Train and save a text-generation model."""
     dataset = load_dataset("json", data_files=dataset_path, split="train")
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=False)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
@@ -25,7 +25,7 @@ def train(dataset_path: str, output_dir: str, model_name: str, epochs: float, bl
         return tokenizer(batch["text"], truncation=True, max_length=block_size)
 
     tokenized = dataset.map(tokenize, batched=True, remove_columns=dataset.column_names)
-    model = AutoModelForCausalLM.from_pretrained(model_name)
+    model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=False)
 
     args = TrainingArguments(
         output_dir=output_dir,

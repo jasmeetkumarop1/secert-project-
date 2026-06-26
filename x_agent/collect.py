@@ -18,10 +18,20 @@ from dotenv import load_dotenv
 SEARCH_URL = "https://api.twitter.com/2/tweets/search/recent"
 
 
+def _validate_bearer_token(token: str) -> str:
+    """Strip and validate the bearer token format."""
+    token = token.strip()
+    if len(token) < 8:
+        raise ValueError("Bearer token is too short; check your X_BEARER_TOKEN value")
+    return token
+
+
 def fetch_recent_posts(query: str, bearer_token: str, max_results: int = 100) -> list[dict[str, Any]]:
     """Fetch recent X posts matching a query using the official API."""
     if not 10 <= max_results <= 100:
         raise ValueError("max_results must be between 10 and 100 for one recent-search request")
+
+    bearer_token = _validate_bearer_token(bearer_token)
 
     response = requests.get(
         SEARCH_URL,
@@ -32,9 +42,13 @@ def fetch_recent_posts(query: str, bearer_token: str, max_results: int = 100) ->
             "tweet.fields": "created_at,author_id,lang,public_metrics",
         },
         timeout=30,
+        verify=True,
     )
     response.raise_for_status()
-    return response.json().get("data", [])
+    payload = response.json()
+    if not isinstance(payload, dict):
+        raise TypeError("Unexpected API response format")
+    return payload.get("data", [])
 
 
 def write_jsonl(posts: list[dict[str, Any]], output: Path) -> None:

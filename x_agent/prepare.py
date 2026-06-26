@@ -21,7 +21,10 @@ def prepare_dataset(input_path: Path, output_path: Path, min_chars: int = 20) ->
         for line in source:
             if not line.strip():
                 continue
-            record = json.loads(line)
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
             text = clean_text(record.get("text", ""))
             if len(text) < min_chars:
                 continue
