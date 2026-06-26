@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import logging
+from pathlib import Path
 
 from datasets import load_dataset
 from transformers import (
@@ -13,11 +15,33 @@ from transformers import (
     TrainingArguments,
 )
 
+logger = logging.getLogger(__name__)
+
 
 def train(dataset_path: str, output_dir: str, model_name: str, epochs: float, block_size: int) -> None:
     """Train and save a text-generation model."""
-    dataset = load_dataset("json", data_files=dataset_path, split="train")
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    ds_path = Path(dataset_path)
+    if not ds_path.exists():
+        raise FileNotFoundError(f"Dataset file not found: {dataset_path}")
+    if ds_path.stat().st_size == 0:
+        raise ValueError(f"Dataset file is empty: {dataset_path}")
+
+    try:
+        dataset = load_dataset("json", data_files=dataset_path, split="train")
+    except Exception as exc:
+        raise RuntimeError(f"Failed to load dataset from {dataset_path}: {exc}") from exc
+
+    if len(dataset) == 0:
+        raise ValueError(f"Dataset at {dataset_path} contains no usable examples")
+
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+    except OSError as exc:
+        raise RuntimeError(
+            f"Failed to load tokenizer for '{model_name}'. "
+            f"Check the model name and your network connection: {exc}"
+        ) from exc
+
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
@@ -25,7 +49,14 @@ def train(dataset_path: str, output_dir: str, model_name: str, epochs: float, bl
         return tokenizer(batch["text"], truncation=True, max_length=block_size)
 
     tokenized = dataset.map(tokenize, batched=True, remove_columns=dataset.column_names)
-    model = AutoModelForCausalLM.from_pretrained(model_name)
+
+    try:
+        model = AutoModelForCausalLM.from_pretrained(model_name)
+    except OSError as exc:
+        raise RuntimeError(
+            f"Failed to load model '{model_name}'. "
+            f"Check the model name and your network connection: {exc}"
+        ) from exc
 
     args = TrainingArguments(
         output_dir=output_dir,
@@ -44,9 +75,15 @@ def train(dataset_path: str, output_dir: str, model_name: str, epochs: float, bl
         train_dataset=tokenized,
         data_collator=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
     )
-    trainer.train()
+
+    try:
+        trainer.train()
+    except Exception as exc:
+        raise RuntimeError(f"Training failed: {exc}") from exc
+
     trainer.save_model(output_dir)
     tokenizer.save_pretrained(output_dir)
+    logger.info("Model saved to %s", output_dir)
 
 
 def main() -> None:
@@ -58,7 +95,12 @@ def main() -> None:
     parser.add_argument("--block-size", type=int, default=128, help="Maximum token length")
     args = parser.parse_args()
 
-    train(args.dataset, args.output_dir, args.model_name, args.epochs, args.block_size)
+    try:
+        train(args.dataset, args.output_dir, args.model_name, args.epochs, args.block_size)
+    except FileNotFoundError as exc:
+        raise SystemExit(f"Error: {exc}") from exc
+    except (ValueError, RuntimeError) as exc:
+        raise SystemExit(f"Training error: {exc}") from exc
 
 
 if __name__ == "__main__":
